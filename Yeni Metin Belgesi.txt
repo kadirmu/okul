@@ -4245,7 +4245,7 @@ php<div class="sidebar" id="sidebar">
 </div>
 
 28. APP/VIEWS/LAYOUTS/SIDEBAR_TEACHER.PHP
-php<div class="sidebar" id="sidebar">
+<div class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <h3><?= APP_NAME ?></h3>
     </div>
@@ -4290,4 +4290,350 @@ php<div class="sidebar" id="sidebar">
             </a>
         </li>
         <li>
-            <a href
+            <a href="<?= BASE_URL ?>/teacher/myLogs" class="<?= $activePage === 'my_logs' ? 'active' : '' ?>">
+                <i class="fas fa-history"></i>
+                <span>İşlem Geçmişim</span>
+            </a>
+        </li>
+        <li>
+            <a href="<?= BASE_URL ?>/auth/logout">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Çıkış</span>
+            </a>
+        </li>
+    </ul>
+</div>
+
+29. APP/VIEWS/AUTH/LOGIN.PHP
+PHP
+
+<?php $data['title'] = 'Giriş Yap'; ?>
+<?php require_once __DIR__ . '/../layouts/header.php'; ?>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <h2><?= APP_NAME ?></h2>
+        <p class="text-center mb-2">Yönetim Paneline Giriş</p>
+        
+        <?php $flash = getFlashMessage(); ?>
+        <?php if ($flash): ?>
+            <div class="alert alert-<?= $flash['type'] ?> mb-2">
+                <?= $flash['message'] ?>
+            </div>
+        <?php endif; ?>
+
+        <form action="<?= BASE_URL ?>/auth/login" method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+            
+            <div class="form-group">
+                <label for="email">E-posta Adresi</label>
+                <input type="email" id="email" name="email" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Şifre</label>
+                <input type="password" id="password" name="password" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary w-100">Giriş Yap</button>
+            </div>
+        </form>
+        
+        <div class="text-center mt-2">
+            <p>Hesabınız yok mu? <a href="<?= BASE_URL ?>/auth/register">Öğretmen Kaydı</a></p>
+        </div>
+    </div>
+</div>
+
+<?php require_once __DIR__ . '/../layouts/footer.php'; ?>
+30. APP/VIEWS/AUTH/REGISTER.PHP
+PHP
+
+<?php $data['title'] = 'Öğretmen Kaydı'; ?>
+<?php require_once __DIR__ . '/../layouts/header.php'; ?>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <h2>Öğretmen Kayıt Formu</h2>
+        <p class="text-center mb-2">Bilgileri doldurun. Kaydınız admin onayı sonrası aktif olacaktır.</p>
+        
+        <?php $flash = getFlashMessage(); ?>
+        <?php if ($flash): ?>
+            <div class="alert alert-<?= $flash['type'] ?> mb-2">
+                <?= $flash['message'] ?>
+            </div>
+        <?php endif; ?>
+
+        <form action="<?= BASE_URL ?>/auth/register" method="POST">
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+            
+            <div class="form-group">
+                <label for="first_name">Ad *</label>
+                <input type="text" id="first_name" name="first_name" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="last_name">Soyad *</label>
+                <input type="text" id="last_name" name="last_name" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="username">Kullanıcı Adı *</label>
+                <input type="text" id="username" name="username" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">E-posta Adresi *</label>
+                <input type="email" id="email" name="email" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Şifre * (En az 6 karakter)</label>
+                <input type="password" id="password" name="password" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password_confirm">Şifre Tekrar *</label>
+                <input type="password" id="password_confirm" name="password_confirm" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">Telefon (Opsiyonel)</label>
+                <input type="text" id="phone" name="phone" class="form-control">
+            </div>
+            
+            <div class="form-group">
+                <label for="address">Adres (Opsiyonel)</label>
+                <textarea id="address" name="address" class="form-control"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary w-100">Kayıt Ol</button>
+            </div>
+        </form>
+        
+        <div class="text-center mt-2">
+            <p>Zaten hesabınız var mı? <a href="<?= BASE_URL ?>/auth/login">Giriş Yap</a></p>
+        </div>
+    </div>
+</div>
+
+<?php require_once __DIR__ . '/../layouts/footer.php'; ?>
+31. APP/VIEWS/ADMIN/DASHBOARD.PHP
+PHP
+
+<?php 
+$data['title'] = 'Admin Dashboard'; 
+$data['activePage'] = 'dashboard'; 
+?>
+<?php require_once __DIR__ . '/../layouts/header.php'; ?>
+<?php require_once __DIR__ . '/../layouts/sidebar_admin.php'; ?>
+
+<div class="main-content">
+    <div class="page-header">
+        <h1>Admin Dashboard</h1>
+        <div class="user-info">
+            <span>Yönetici: <?= $_SESSION['username'] ?></span>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon primary"><i class="fas fa-user-graduate"></i></div>
+            <div class="stat-content">
+                <h4><?= $data['total_students'] ?></h4>
+                <p>Toplam Öğrenci</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon success"><i class="fas fa-chalkboard-teacher"></i></div>
+            <div class="stat-content">
+                <h4><?= $data['total_teachers'] ?></h4>
+                <p>Toplam Öğretmen</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon info"><i class="fas fa-school"></i></div>
+            <div class="stat-content">
+                <h4><?= $data['total_classes'] ?></h4>
+                <p>Toplam Sınıf</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon warning"><i class="fas fa-book"></i></div>
+            <div class="stat-content">
+                <h4><?= $data['total_subjects'] ?></h4>
+                <p>Toplam Ders</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Hızlı Erişim ve Bilgiler</h3>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <div class="stat-card" style="flex: 1;">
+                <div class="stat-icon danger"><i class="fas fa-user-clock"></i></div>
+                <div class="stat-content">
+                    <h4><?= $data['pending_teachers'] ?></h4>
+                    <p>Onay Bekleyen Öğretmen</p>
+                </div>
+            </div>
+            <div class="stat-card" style="flex: 1;">
+                <div class="stat-icon info"><i class="fas fa-history"></i></div>
+                <div class="stat-content">
+                    <h4><?= $data['total_logs'] ?></h4>
+                    <p>Toplam Log Kaydı</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Son Eklenen Notlar</h3>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Öğrenci</th>
+                        <th>Ders</th>
+                        <th>Dönem</th>
+                        <th>Not</th>
+                        <th>Giren Öğretmen</th>
+                        <th>Tarih</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($data['recent_grades'])): ?>
+                        <tr>
+                            <td colspan="6" class="text-center">Henüz not girişi yapılmamış.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($data['recent_grades'] as $grade): ?>
+                            <tr>
+                                <td><?= $grade['first_name'] . ' ' . $grade['last_name'] ?></td>
+                                <td><?= $grade['subject_name'] ?></td>
+                                <td><?= $grade['period_name'] ?></td>
+                                <td><b><?= $grade['grade'] ?></b></td>
+                                <td><?= $grade['teacher_name'] ?></td>
+                                <td><?= formatDateTime($grade['created_at']) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<?php require_once __DIR__ . '/../layouts/footer.php'; ?>
+32. APP/VIEWS/TEACHER/DASHBOARD.PHP
+PHP
+
+<?php 
+$data['title'] = 'Öğretmen Dashboard'; 
+$data['activePage'] = 'dashboard'; 
+?>
+<?php require_once __DIR__ . '/../layouts/header.php'; ?>
+<?php require_once __DIR__ . '/../layouts/sidebar_teacher.php'; ?>
+
+<div class="main-content">
+    <div class="page-header">
+        <h1>Öğretmen Paneli</h1>
+        <div class="user-info">
+            <span>Öğretmen: <?= $_SESSION['username'] ?></span>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon primary"><i class="fas fa-book"></i></div>
+            <div class="stat-content">
+                <h4><?= $data['subject_count'] ?></h4>
+                <p>Atanmış Ders Sayısı</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon success"><i class="fas fa-school"></i></div>
+            <div class="stat-content">
+                <h4><?= $data['class_count'] ?></h4>
+                <p>Tanımlı Sınıf Sayısı</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Sorumlu Olduğum Dersler</h3>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ders Kodu</th>
+                        <th>Ders Adı</th>
+                        <th>Açıklama</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($data['subjects'])): ?>
+                        <tr>
+                            <td colspan="3" class="text-center">Size atanmış ders bulunmamaktadır.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($data['subjects'] as $subject): ?>
+                            <tr>
+                                <td><?= $subject['code'] ?></td>
+                                <td><?= $subject['name'] ?></td>
+                                <td><?= $subject['description'] ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Girdiğim Son Notlar</h3>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Öğrenci</th>
+                        <th>Ders</th>
+                        <th>Dönem</th>
+                        <th>Not</th>
+                        <th>Tarih</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($data['recent_grades'])): ?>
+                        <tr>
+                            <td colspan="5" class="text-center">Henüz not girişi yapmamışsınız.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($data['recent_grades'] as $grade): ?>
+                            <tr>
+                                <td><?= $grade['first_name'] . ' ' . $grade['last_name'] ?></td>
+                                <td><?= $grade['subject_name'] ?></td>
+                                <td><?= $grade['period_name'] ?></td>
+                                <td><b><?= $grade['grade'] ?></b></td>
+                                <td><?= formatDateTime($grade['created_at']) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<?php require_once __DIR__ . '/../layouts/footer.php'; ?>
