@@ -128,53 +128,63 @@ class AdminLoginDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Admin Panel - Giriş")
-        self.setFixedSize(450, 350)
+        self.setMinimumSize(450, 400)
         self.setup_ui()
 
     def setup_ui(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(20)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(15)
 
         # İkon
         icon = QLabel("🔐")
         icon.setAlignment(Qt.AlignCenter)
-        icon.setFont(QFont("Arial", 48))
+        icon.setFont(QFont("Arial", 40))
         layout.addWidget(icon)
 
         # Başlık
         title = QLabel("Admin Panel")
         title.setAlignment(Qt.AlignCenter)
-        title.setFont(QFont("Arial", 20, QFont.Bold))
-        title.setStyleSheet(f"color: {PRIMARY_COLOR}; margin-bottom: 10px;")
+        title.setFont(QFont("Arial", 18, QFont.Bold))
+        title.setStyleSheet(f"color: {PRIMARY_COLOR};")
+        title.setWordWrap(True)
         layout.addWidget(title)
 
         subtitle = QLabel("Yönetim Paneli Girişi")
         subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setStyleSheet(f"color: {TEXT_SECONDARY}; margin-bottom: 20px;")
+        subtitle.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
 
         # Kullanıcı adı
-        layout.addWidget(QLabel("Kullanıcı Adı:", styleSheet=f"color: {TEXT_PRIMARY}; font-weight: bold;"))
+        username_label = QLabel("Kullanıcı Adı:")
+        username_label.setStyleSheet(f"color: {TEXT_PRIMARY}; font-weight: bold;")
+        username_label.setWordWrap(True)
+        layout.addWidget(username_label)
+
         self.username_input = QLineEdit()
         self.username_input.setPlaceholderText("admin")
-        self.username_input.setFixedHeight(45)
+        self.username_input.setMinimumHeight(40)
         self.username_input.returnPressed.connect(lambda: self.password_input.setFocus())
         layout.addWidget(self.username_input)
 
         # Şifre
-        layout.addWidget(QLabel("Şifre:", styleSheet=f"color: {TEXT_PRIMARY}; font-weight: bold;"))
+        password_label = QLabel("Şifre:")
+        password_label.setStyleSheet(f"color: {TEXT_PRIMARY}; font-weight: bold;")
+        password_label.setWordWrap(True)
+        layout.addWidget(password_label)
+
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.Password)
         self.password_input.setPlaceholderText("••••••••")
-        self.password_input.setFixedHeight(45)
+        self.password_input.setMinimumHeight(40)
         self.password_input.returnPressed.connect(self.login)
         layout.addWidget(self.password_input)
 
         # Giriş butonu
         login_btn = QPushButton("🔓 Giriş Yap")
-        login_btn.setFixedHeight(50)
-        login_btn.setFont(QFont("Arial", 12, QFont.Bold))
+        login_btn.setMinimumHeight(45)
+        login_btn.setFont(QFont("Arial", 11, QFont.Bold))
         login_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {PRIMARY_COLOR};
@@ -220,7 +230,8 @@ class UserDetailDialog(QDialog):
         self.db = db
         self.uid = user_data['uid']
         self.setWindowTitle(f"Kullanıcı Detayları - {user_data['email']}")
-        self.setFixedSize(900, 700)
+        self.setMinimumSize(800, 600)
+        self.resize(900, 700)
         self.setup_ui()
 
     def setup_ui(self):
@@ -238,7 +249,6 @@ class UserDetailDialog(QDialog):
         tabs = QTabWidget()
         tabs.addTab(self.create_info_tab(), "📋 Bilgiler")
         tabs.addTab(self.create_license_tab(), "🔑 Lisans")
-        tabs.addTab(self.create_customers_tab(), "👥 Müşteriler")
         layout.addWidget(tabs)
 
         # Alt butonlar
@@ -246,7 +256,7 @@ class UserDetailDialog(QDialog):
         btn_layout.setSpacing(10)
 
         save_btn = QPushButton("💾 Kaydet")
-        save_btn.setFixedHeight(45)
+        save_btn.setMinimumHeight(40)
         save_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {PRIMARY_COLOR};
@@ -254,6 +264,7 @@ class UserDetailDialog(QDialog):
                 border: none;
                 border-radius: 8px;
                 font-weight: bold;
+                padding: 8px;
             }}
             QPushButton:hover {{ background-color: {HOVER_COLOR}; }}
         """)
@@ -261,7 +272,7 @@ class UserDetailDialog(QDialog):
         btn_layout.addWidget(save_btn)
 
         close_btn = QPushButton("✕ Kapat")
-        close_btn.setFixedHeight(45)
+        close_btn.setMinimumHeight(40)
         close_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {BORDER_COLOR};
@@ -269,6 +280,7 @@ class UserDetailDialog(QDialog):
                 border: none;
                 border-radius: 8px;
                 font-weight: bold;
+                padding: 8px;
             }}
             QPushButton:hover {{ background-color: #d0d0d0; }}
         """)
@@ -313,17 +325,17 @@ class UserDetailDialog(QDialog):
 
         group_layout.addWidget(QLabel("Firma Adı:"), 0, 0)
         self.company_name = QLineEdit(self.user_data.get('company_name', ''))
-        self.company_name.setFixedHeight(35)
+        self.company_name.setMinimumHeight(32)
         group_layout.addWidget(self.company_name, 0, 1)
 
         group_layout.addWidget(QLabel("Telefon:"), 1, 0)
         self.company_phone = QLineEdit(self.user_data.get('company_phone', ''))
-        self.company_phone.setFixedHeight(35)
+        self.company_phone.setMinimumHeight(32)
         group_layout.addWidget(self.company_phone, 1, 1)
 
         group_layout.addWidget(QLabel("Adres:"), 2, 0)
         self.company_address = QLineEdit(self.user_data.get('company_address', ''))
-        self.company_address.setFixedHeight(35)
+        self.company_address.setMinimumHeight(32)
         group_layout.addWidget(self.company_address, 2, 1)
 
         group.setLayout(group_layout)
@@ -416,7 +428,7 @@ class UserDetailDialog(QDialog):
         self.expiry_date_edit = QDateEdit()
         self.expiry_date_edit.setDate(q_date)
         self.expiry_date_edit.setCalendarPopup(True)
-        self.expiry_date_edit.setFixedHeight(35)
+        self.expiry_date_edit.setMinimumHeight(32)
         expiry_layout.addWidget(self.expiry_date_edit)
 
         # Hızlı süre ekleme
@@ -425,7 +437,7 @@ class UserDetailDialog(QDialog):
 
         for days, text in [(7, "+1 Hafta"), (30, "+1 Ay"), (90, "+3 Ay"), (365, "+1 Yıl")]:
             btn = QPushButton(text)
-            btn.setFixedHeight(30)
+            btn.setMinimumHeight(28)
             btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {ACCENT_COLOR};
@@ -433,6 +445,7 @@ class UserDetailDialog(QDialog):
                     border: none;
                     border-radius: 5px;
                     font-size: 10px;
+                    padding: 4px 8px;
                 }}
                 QPushButton:hover {{ background-color: {PRIMARY_COLOR}; }}
             """)
@@ -483,74 +496,6 @@ class UserDetailDialog(QDialog):
         layout.addStretch()
         return widget
 
-    def create_customers_tab(self):
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-
-        # İstatistikler
-        stats_layout = QHBoxLayout()
-
-        try:
-            customers = self.db.collection('users').document(self.uid).collection('customers').stream()
-            customer_count = sum(1 for _ in customers)
-
-            stats_card = self.create_stat_card("👥 Toplam Müşteri", str(customer_count), SUCCESS_COLOR)
-            stats_layout.addWidget(stats_card)
-        except Exception as e:
-            print(f"Müşteri sayısı alınamadı: {e}")
-            stats_card = self.create_stat_card("👥 Toplam Müşteri", "0", ERROR_COLOR)
-            stats_layout.addWidget(stats_card)
-
-        layout.addLayout(stats_layout)
-
-        # Müşteri tablosu
-        self.customers_table = QTableWidget()
-        self.customers_table.setColumnCount(5)
-        self.customers_table.setHorizontalHeaderLabels(["Müşteri", "Telefon", "Cihaz", "Arıza", "Tarih"])
-
-        header = self.customers_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.Stretch)
-        header.setSectionResizeMode(3, QHeaderView.Stretch)
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-
-        self.customers_table.setStyleSheet(f"""
-            QTableWidget {{
-                background-color: {CARD_COLOR};
-                border: 1px solid {BORDER_COLOR};
-                border-radius: 8px;
-                gridline-color: {BORDER_COLOR};
-            }}
-            QHeaderView::section {{
-                background-color: {PRIMARY_COLOR};
-                color: white;
-                padding: 8px;
-                border: none;
-                font-weight: bold;
-            }}
-        """)
-
-        self.load_customers()
-        layout.addWidget(self.customers_table)
-
-        # Export butonu
-        export_btn = QPushButton("📥 Excel'e Aktar")
-        export_btn.setFixedHeight(40)
-        export_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {SUCCESS_COLOR};
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{ background-color: #2e7d32; }}
-        """)
-        export_btn.clicked.connect(self.export_customers)
-        layout.addWidget(export_btn)
-
-        return widget
 
     def create_stat_card(self, title, value, color):
         card = QFrame()
@@ -574,65 +519,7 @@ class UserDetailDialog(QDialog):
 
         return card
 
-    def load_customers(self):
-        try:
-            customers = self.db.collection('users').document(self.uid).collection('customers').stream()
 
-            self.customers_table.setRowCount(0)
-
-            for customer in customers:
-                data = customer.to_dict()
-                row = self.customers_table.rowCount()
-                self.customers_table.insertRow(row)
-
-                self.customers_table.setItem(row, 0, QTableWidgetItem(data.get('customer_name', '')))
-                self.customers_table.setItem(row, 1, QTableWidgetItem(data.get('phone_number', '')))
-                self.customers_table.setItem(row, 2, QTableWidgetItem(data.get('device_model', '')))
-                self.customers_table.setItem(row, 3, QTableWidgetItem(data.get('device_issue', '')))
-
-                created_at = data.get('created_at')
-                if isinstance(created_at, datetime):
-                    date_str = created_at.strftime('%d.%m.%Y')
-                else:
-                    date_str = ''
-                self.customers_table.setItem(row, 4, QTableWidgetItem(date_str))
-
-        except Exception as e:
-            print(f"Müşteriler yüklenemedi: {e}")
-            QMessageBox.warning(self, "Hata", f"Müşteriler yüklenemedi:\n{str(e)}")
-
-    def export_customers(self):
-        try:
-            filename, _ = QFileDialog.getSaveFileName(
-                self,
-                "Excel'e Aktar",
-                f"musteriler_{self.user_data.get('company_name', 'kullanici')}_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                "Excel Files (*.xlsx)"
-            )
-
-            if filename:
-                from openpyxl import Workbook
-                wb = Workbook()
-                ws = wb.active
-                ws.title = "Müşteriler"
-
-                # Başlıklar
-                headers = ["Müşteri Adı", "Telefon", "Cihaz", "Arıza", "Tarih"]
-                ws.append(headers)
-
-                # Veriler
-                for row in range(self.customers_table.rowCount()):
-                    row_data = []
-                    for col in range(5):
-                        item = self.customers_table.item(row, col)
-                        row_data.append(item.text() if item else '')
-                    ws.append(row_data)
-
-                wb.save(filename)
-                QMessageBox.information(self, "Başarılı", f"✓ {self.customers_table.rowCount()} kayıt dışa aktarıldı!")
-
-        except Exception as e:
-            QMessageBox.critical(self, "Hata", f"Export hatası:\n{str(e)}")
 
     def add_days(self, days):
         current_date = self.expiry_date_edit.date()
@@ -739,19 +626,19 @@ class AdminPanel(QMainWindow):
 
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("🔍 Email veya firma adı ile ara...")
-        self.search_input.setFixedHeight(40)
+        self.search_input.setMinimumHeight(38)
         self.search_input.textChanged.connect(self.filter_users)
         search_layout.addWidget(self.search_input)
 
         self.filter_combo = QComboBox()
         self.filter_combo.addItems(["Tümü", "Aktif", "Pasif", "Trial", "Lisanslı", "Süresi Dolan"])
-        self.filter_combo.setFixedWidth(150)
-        self.filter_combo.setFixedHeight(40)
+        self.filter_combo.setMinimumWidth(140)
+        self.filter_combo.setMinimumHeight(38)
         self.filter_combo.currentTextChanged.connect(self.filter_users)
         search_layout.addWidget(self.filter_combo)
 
         refresh_btn = QPushButton("🔄 Yenile")
-        refresh_btn.setFixedSize(100, 40)
+        refresh_btn.setMinimumSize(90, 38)
         refresh_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {ACCENT_COLOR};
@@ -818,7 +705,7 @@ class AdminPanel(QMainWindow):
         btn_layout = QHBoxLayout()
 
         detail_btn = QPushButton("👁 Detay")
-        detail_btn.setFixedHeight(45)
+        detail_btn.setMinimumHeight(42)
         detail_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {PRIMARY_COLOR};
@@ -826,6 +713,7 @@ class AdminPanel(QMainWindow):
                 border: none;
                 border-radius: 6px;
                 font-weight: bold;
+                padding: 8px 16px;
             }}
             QPushButton:hover {{ background-color: {HOVER_COLOR}; }}
         """)
@@ -833,7 +721,7 @@ class AdminPanel(QMainWindow):
         btn_layout.addWidget(detail_btn)
 
         delete_btn = QPushButton("🗑 Kullanıcı Sil")
-        delete_btn.setFixedHeight(45)
+        delete_btn.setMinimumHeight(42)
         delete_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {ERROR_COLOR};
@@ -841,6 +729,7 @@ class AdminPanel(QMainWindow):
                 border: none;
                 border-radius: 6px;
                 font-weight: bold;
+                padding: 8px 16px;
             }}
             QPushButton:hover {{ background-color: #d32f2f; }}
         """)
@@ -848,7 +737,7 @@ class AdminPanel(QMainWindow):
         btn_layout.addWidget(delete_btn)
 
         export_btn = QPushButton("📥 Excel'e Aktar")
-        export_btn.setFixedHeight(45)
+        export_btn.setMinimumHeight(42)
         export_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {SUCCESS_COLOR};
@@ -856,6 +745,7 @@ class AdminPanel(QMainWindow):
                 border: none;
                 border-radius: 6px;
                 font-weight: bold;
+                padding: 8px 16px;
             }}
             QPushButton:hover {{ background-color: #2e7d32; }}
         """)
@@ -884,7 +774,8 @@ class AdminPanel(QMainWindow):
 
     def create_header(self):
         header = QWidget()
-        header.setFixedHeight(70)
+        header.setMinimumHeight(65)
+        header.setMaximumHeight(80)
         header.setStyleSheet(f"""
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                 stop:0 {PRIMARY_COLOR}, stop:1 {ACCENT_COLOR});
@@ -924,7 +815,8 @@ class AdminPanel(QMainWindow):
 
         # Tema butonu
         self.theme_btn = QPushButton("🌙" if not IS_DARK_MODE else "☀")
-        self.theme_btn.setFixedSize(40, 40)
+        self.theme_btn.setMinimumSize(38, 38)
+        self.theme_btn.setMaximumSize(42, 42)
         self.theme_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: rgba(255,255,255,0.2);
@@ -959,7 +851,8 @@ class AdminPanel(QMainWindow):
 
     def create_stat_card(self, title, value, color):
         card = QFrame()
-        card.setFixedHeight(100)
+        card.setMinimumHeight(90)
+        card.setMaximumHeight(110)
         card.setStyleSheet(f"""
             QFrame {{
                 background-color: {color};
