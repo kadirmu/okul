@@ -1,0 +1,1282 @@
+"""
+Firebase Admin Panel
+Teknik Servis Müşteri Kayıt Sistemi - Yönetim Paneli
+Versiyon: 1.0.0
+"""
+
+import sys
+import json
+import os
+from datetime import datetime, timedelta, timezone
+from functools import partial
+import pytz
+
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QLabel, QPushButton, QTableWidget, QTableWidgetItem, QMessageBox,
+    QDialog, QLineEdit, QFrame, QHeaderView, QComboBox, QDateEdit,
+    QTextEdit, QSpinBox, QGridLayout, QTabWidget, QCheckBox,
+    QFileDialog, QGroupBox
+)
+from PyQt5.QtCore import Qt, QDate, QTimer
+from PyQt5.QtGui import QFont, QColor, QPalette
+
+import firebase_admin
+from firebase_admin import credentials, firestore, auth
+
+# Firebase bağlantısı
+TURKEY_TZ = pytz.timezone('Europe/Istanbul')
+
+# Admin kimlik bilgileri (güvenlik için ortam değişkenlerinden alın)
+ADMIN_USERNAME = "admin"  # Değiştirin
+ADMIN_PASSWORD = "admin123"  # Değiştirin
+
+# Renk paleti - Ana uygulamayla aynı
+LIGHT_PRIMARY = "#0a1929"
+LIGHT_SECONDARY = "#f5f7fa"
+LIGHT_ACCENT = "#1a3a52"
+LIGHT_SUCCESS = "#1b5e20"
+LIGHT_ERROR = "#b71c1c"
+LIGHT_WARNING = "#e65100"
+LIGHT_CARD = "#ffffff"
+LIGHT_TEXT_PRIMARY = "#1a1a1a"
+LIGHT_TEXT_SECONDARY = "#546e7a"
+LIGHT_BORDER = "#cfd8dc"
+LIGHT_HOVER = "#263238"
+
+DARK_PRIMARY = "#1e3a5f"
+DARK_SECONDARY = "#121212"
+DARK_ACCENT = "#2c5282"
+DARK_SUCCESS = "#4caf50"
+DARK_ERROR = "#ef5350"
+DARK_WARNING = "#ff9800"
+DARK_CARD = "#1e1e1e"
+DARK_TEXT_PRIMARY = "#e0e0e0"
+DARK_TEXT_SECONDARY = "#b0b0b0"
+DARK_BORDER = "#424242"
+DARK_HOVER = "#2a4a6f"
+
+# Aktif tema
+PRIMARY_COLOR = LIGHT_PRIMARY
+SECONDARY_COLOR = LIGHT_SECONDARY
+ACCENT_COLOR = LIGHT_ACCENT
+SUCCESS_COLOR = LIGHT_SUCCESS
+ERROR_COLOR = LIGHT_ERROR
+WARNING_COLOR = LIGHT_WARNING
+CARD_COLOR = LIGHT_CARD
+TEXT_PRIMARY = LIGHT_TEXT_PRIMARY
+TEXT_SECONDARY = LIGHT_TEXT_SECONDARY
+BORDER_COLOR = LIGHT_BORDER
+HOVER_COLOR = LIGHT_HOVER
+
+IS_DARK_MODE = False
+
+
+def set_light_mode():
+    global PRIMARY_COLOR, SECONDARY_COLOR, ACCENT_COLOR, SUCCESS_COLOR, ERROR_COLOR
+    global WARNING_COLOR, CARD_COLOR, TEXT_PRIMARY, TEXT_SECONDARY, BORDER_COLOR
+    global HOVER_COLOR, IS_DARK_MODE
+
+    PRIMARY_COLOR = LIGHT_PRIMARY
+    SECONDARY_COLOR = LIGHT_SECONDARY
+    ACCENT_COLOR = LIGHT_ACCENT
+    SUCCESS_COLOR = LIGHT_SUCCESS
+    ERROR_COLOR = LIGHT_ERROR
+    WARNING_COLOR = LIGHT_WARNING
+    CARD_COLOR = LIGHT_CARD
+    TEXT_PRIMARY = LIGHT_TEXT_PRIMARY
+    TEXT_SECONDARY = LIGHT_TEXT_SECONDARY
+    BORDER_COLOR = LIGHT_BORDER
+    HOVER_COLOR = LIGHT_HOVER
+    IS_DARK_MODE = False
+
+
+def set_dark_mode():
+    global PRIMARY_COLOR, SECONDARY_COLOR, ACCENT_COLOR, SUCCESS_COLOR, ERROR_COLOR
+    global WARNING_COLOR, CARD_COLOR, TEXT_PRIMARY, TEXT_SECONDARY, BORDER_COLOR
+    global HOVER_COLOR, IS_DARK_MODE
+
+    PRIMARY_COLOR = DARK_PRIMARY
+    SECONDARY_COLOR = DARK_SECONDARY
+    ACCENT_COLOR = DARK_ACCENT
+    SUCCESS_COLOR = DARK_SUCCESS
+    ERROR_COLOR = DARK_ERROR
+    WARNING_COLOR = DARK_WARNING
+    CARD_COLOR = DARK_CARD
+    TEXT_PRIMARY = DARK_TEXT_PRIMARY
+    TEXT_SECONDARY = DARK_TEXT_SECONDARY
+    BORDER_COLOR = DARK_BORDER
+    HOVER_COLOR = DARK_HOVER
+    IS_DARK_MODE = True
+
+
+def initialize_firebase():
+    """Firebase başlatma"""
+    try:
+        if not firebase_admin._apps:
+            cred = credentials.Certificate("firebase_config.json")
+            firebase_admin.initialize_app(cred)
+        return firestore.client()
+    except Exception as e:
+        print(f"Firebase hatası: {e}")
+        return None
+
+
+class AdminLoginDialog(QDialog):
+    """Admin giriş ekranı"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Admin Panel - Giriş")
+        self.setFixedSize(450, 350)
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QVBoxLayout()
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setSpacing(20)
+
+        # İkon
+        icon = QLabel("🔐")
+        icon.setAlignment(Qt.AlignCenter)
+        icon.setFont(QFont("Arial", 48))
+        layout.addWidget(icon)
+
+        # Başlık
+        title = QLabel("Admin Panel")
+        title.setAlignment(Qt.AlignCenter)
+        title.setFont(QFont("Arial", 20, QFont.Bold))
+        title.setStyleSheet(f"color: {PRIMARY_COLOR}; margin-bottom: 10px;")
+        layout.addWidget(title)
+
+        subtitle = QLabel("Yönetim Paneli Girişi")
+        subtitle.setAlignment(Qt.AlignCenter)
+        subtitle.setStyleSheet(f"color: {TEXT_SECONDARY}; margin-bottom: 20px;")
+        layout.addWidget(subtitle)
+
+        # Kullanıcı adı
+        layout.addWidget(QLabel("Kullanıcı Adı:", styleSheet=f"color: {TEXT_PRIMARY}; font-weight: bold;"))
+        self.username_input = QLineEdit()
+        self.username_input.setPlaceholderText("admin")
+        self.username_input.setFixedHeight(45)
+        self.username_input.returnPressed.connect(lambda: self.password_input.setFocus())
+        layout.addWidget(self.username_input)
+
+        # Şifre
+        layout.addWidget(QLabel("Şifre:", styleSheet=f"color: {TEXT_PRIMARY}; font-weight: bold;"))
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.Password)
+        self.password_input.setPlaceholderText("••••••••")
+        self.password_input.setFixedHeight(45)
+        self.password_input.returnPressed.connect(self.login)
+        layout.addWidget(self.password_input)
+
+        # Giriş butonu
+        login_btn = QPushButton("🔓 Giriş Yap")
+        login_btn.setFixedHeight(50)
+        login_btn.setFont(QFont("Arial", 12, QFont.Bold))
+        login_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {PRIMARY_COLOR};
+                color: white;
+                border: none;
+                border-radius: 8px;
+            }}
+            QPushButton:hover {{ background-color: {HOVER_COLOR}; }}
+        """)
+        login_btn.clicked.connect(self.login)
+        layout.addWidget(login_btn)
+
+        self.setLayout(layout)
+        self.setStyleSheet(f"""
+            QDialog {{ background-color: {CARD_COLOR}; }}
+            QLineEdit {{
+                border: 2px solid {BORDER_COLOR};
+                border-radius: 8px;
+                padding: 10px;
+                background: white;
+                color: {TEXT_PRIMARY};
+            }}
+            QLineEdit:focus {{ border: 2px solid {PRIMARY_COLOR}; }}
+        """)
+
+    def login(self):
+        username = self.username_input.text().strip()
+        password = self.password_input.text()
+
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            print("✓ Admin girişi başarılı")
+            self.accept()
+        else:
+            QMessageBox.critical(self, "Hata", "❌ Kullanıcı adı veya şifre hatalı!")
+
+
+class UserDetailDialog(QDialog):
+    """Kullanıcı detay ve düzenleme dialogu"""
+
+    def __init__(self, user_data, db, parent=None):
+        super().__init__(parent)
+        self.user_data = user_data
+        self.db = db
+        self.uid = user_data['uid']
+        self.setWindowTitle(f"Kullanıcı Detayları - {user_data['email']}")
+        self.setFixedSize(900, 700)
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QVBoxLayout()
+        layout.setContentsMargins(25, 25, 25, 25)
+        layout.setSpacing(15)
+
+        # Başlık
+        title = QLabel(f"👤 {self.user_data['email']}")
+        title.setFont(QFont("Arial", 16, QFont.Bold))
+        title.setStyleSheet(f"color: {PRIMARY_COLOR};")
+        layout.addWidget(title)
+
+        # Tab widget
+        tabs = QTabWidget()
+        tabs.addTab(self.create_info_tab(), "📋 Bilgiler")
+        tabs.addTab(self.create_license_tab(), "🔑 Lisans")
+        tabs.addTab(self.create_customers_tab(), "👥 Müşteriler")
+        layout.addWidget(tabs)
+
+        # Alt butonlar
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+
+        save_btn = QPushButton("💾 Kaydet")
+        save_btn.setFixedHeight(45)
+        save_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {PRIMARY_COLOR};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{ background-color: {HOVER_COLOR}; }}
+        """)
+        save_btn.clicked.connect(self.save_changes)
+        btn_layout.addWidget(save_btn)
+
+        close_btn = QPushButton("✕ Kapat")
+        close_btn.setFixedHeight(45)
+        close_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {BORDER_COLOR};
+                color: {TEXT_PRIMARY};
+                border: none;
+                border-radius: 8px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{ background-color: #d0d0d0; }}
+        """)
+        close_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(close_btn)
+
+        layout.addLayout(btn_layout)
+        self.setLayout(layout)
+        self.setStyleSheet(f"""
+            QDialog {{ background-color: {SECONDARY_COLOR}; }}
+            QLineEdit, QTextEdit {{
+                border: 1px solid {BORDER_COLOR};
+                border-radius: 6px;
+                padding: 8px;
+                background: {CARD_COLOR};
+                color: {TEXT_PRIMARY};
+            }}
+        """)
+
+    def create_info_tab(self):
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(15)
+
+        # Şirket bilgileri
+        group = QGroupBox("Şirket Bilgileri")
+        group.setStyleSheet(f"""
+            QGroupBox {{
+                font-weight: bold;
+                border: 2px solid {BORDER_COLOR};
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }}
+        """)
+        group_layout = QGridLayout()
+
+        group_layout.addWidget(QLabel("Firma Adı:"), 0, 0)
+        self.company_name = QLineEdit(self.user_data.get('company_name', ''))
+        self.company_name.setFixedHeight(35)
+        group_layout.addWidget(self.company_name, 0, 1)
+
+        group_layout.addWidget(QLabel("Telefon:"), 1, 0)
+        self.company_phone = QLineEdit(self.user_data.get('company_phone', ''))
+        self.company_phone.setFixedHeight(35)
+        group_layout.addWidget(self.company_phone, 1, 1)
+
+        group_layout.addWidget(QLabel("Adres:"), 2, 0)
+        self.company_address = QLineEdit(self.user_data.get('company_address', ''))
+        self.company_address.setFixedHeight(35)
+        group_layout.addWidget(self.company_address, 2, 1)
+
+        group.setLayout(group_layout)
+        layout.addWidget(group)
+
+        # Kayıt bilgileri
+        info_group = QGroupBox("Kayıt Bilgileri")
+        info_group.setStyleSheet(group.styleSheet())
+        info_layout = QGridLayout()
+
+        created_at = self.user_data.get('created_at')
+        if isinstance(created_at, datetime):
+            created_str = created_at.strftime('%d.%m.%Y %H:%M')
+        else:
+            created_str = 'Bilinmiyor'
+
+        info_layout.addWidget(QLabel("Email:"), 0, 0)
+        info_layout.addWidget(QLabel(self.user_data['email']), 0, 1)
+
+        info_layout.addWidget(QLabel("UID:"), 1, 0)
+        uid_label = QLabel(self.uid)
+        uid_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        info_layout.addWidget(uid_label, 1, 1)
+
+        info_layout.addWidget(QLabel("Kayıt Tarihi:"), 2, 0)
+        info_layout.addWidget(QLabel(created_str), 2, 1)
+
+        info_group.setLayout(info_layout)
+        layout.addWidget(info_group)
+
+        # Durum
+        status_group = QGroupBox("Durum")
+        status_group.setStyleSheet(group.styleSheet())
+        status_layout = QVBoxLayout()
+
+        self.is_active = QCheckBox("Hesap Aktif")
+        self.is_active.setChecked(self.user_data.get('is_active', True))
+        self.is_active.setStyleSheet(f"color: {TEXT_PRIMARY}; font-weight: bold;")
+        status_layout.addWidget(self.is_active)
+
+        status_group.setLayout(status_layout)
+        layout.addWidget(status_group)
+
+        layout.addStretch()
+        return widget
+
+    def create_license_tab(self):
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(15)
+
+        # Lisans tipi
+        type_group = QGroupBox("Lisans Tipi")
+        type_group.setStyleSheet(f"""
+            QGroupBox {{
+                font-weight: bold;
+                border: 2px solid {BORDER_COLOR};
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }}
+        """)
+        type_layout = QVBoxLayout()
+
+        self.trial_check = QCheckBox("Trial (Deneme)")
+        self.trial_check.setChecked(self.user_data.get('trial', True))
+        self.trial_check.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        type_layout.addWidget(self.trial_check)
+
+        type_group.setLayout(type_layout)
+        layout.addWidget(type_group)
+
+        # Süre
+        expiry_group = QGroupBox("Lisans Süresi")
+        expiry_group.setStyleSheet(type_group.styleSheet())
+        expiry_layout = QVBoxLayout()
+
+        expiry_date = self.user_data.get('expiry_date')
+        if isinstance(expiry_date, datetime):
+            if expiry_date.tzinfo is None:
+                expiry_date = TURKEY_TZ.localize(expiry_date)
+            else:
+                expiry_date = expiry_date.astimezone(TURKEY_TZ)
+
+            q_date = QDate(expiry_date.year, expiry_date.month, expiry_date.day)
+        else:
+            q_date = QDate.currentDate()
+
+        expiry_layout.addWidget(QLabel("Bitiş Tarihi:"))
+        self.expiry_date_edit = QDateEdit()
+        self.expiry_date_edit.setDate(q_date)
+        self.expiry_date_edit.setCalendarPopup(True)
+        self.expiry_date_edit.setFixedHeight(35)
+        expiry_layout.addWidget(self.expiry_date_edit)
+
+        # Hızlı süre ekleme
+        quick_layout = QHBoxLayout()
+        quick_layout.addWidget(QLabel("Hızlı Ekle:"))
+
+        for days, text in [(7, "+1 Hafta"), (30, "+1 Ay"), (90, "+3 Ay"), (365, "+1 Yıl")]:
+            btn = QPushButton(text)
+            btn.setFixedHeight(30)
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {ACCENT_COLOR};
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    font-size: 10px;
+                }}
+                QPushButton:hover {{ background-color: {PRIMARY_COLOR}; }}
+            """)
+            btn.clicked.connect(partial(self.add_days, days))
+            quick_layout.addWidget(btn)
+
+        expiry_layout.addLayout(quick_layout)
+
+        # Kalan gün göstergesi
+        now = datetime.now(timezone.utc)
+        if expiry_date:
+            if expiry_date.tzinfo is None:
+                expiry_date = expiry_date.replace(tzinfo=timezone.utc)
+            remaining = (expiry_date - now).days
+
+            if remaining < 0:
+                status_text = f"⚠️ Lisans {abs(remaining)} gün önce doldu"
+                status_color = ERROR_COLOR
+            elif remaining == 0:
+                status_text = "⚠️ Lisans bugün bitiyor"
+                status_color = WARNING_COLOR
+            elif remaining <= 3:
+                status_text = f"⚠️ {remaining} gün kaldı"
+                status_color = WARNING_COLOR
+            else:
+                status_text = f"✅ {remaining} gün kaldı"
+                status_color = SUCCESS_COLOR
+        else:
+            status_text = "❌ Lisans tarihi yok"
+            status_color = ERROR_COLOR
+
+        self.status_label = QLabel(status_text)
+        self.status_label.setStyleSheet(f"""
+            QLabel {{
+                color: white;
+                background-color: {status_color};
+                padding: 10px;
+                border-radius: 6px;
+                font-weight: bold;
+            }}
+        """)
+        self.status_label.setAlignment(Qt.AlignCenter)
+        expiry_layout.addWidget(self.status_label)
+
+        expiry_group.setLayout(expiry_layout)
+        layout.addWidget(expiry_group)
+
+        layout.addStretch()
+        return widget
+
+    def create_customers_tab(self):
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        # İstatistikler
+        stats_layout = QHBoxLayout()
+
+        try:
+            customers = self.db.collection('users').document(self.uid).collection('customers').stream()
+            customer_count = sum(1 for _ in customers)
+
+            stats_card = self.create_stat_card("👥 Toplam Müşteri", str(customer_count), SUCCESS_COLOR)
+            stats_layout.addWidget(stats_card)
+        except Exception as e:
+            print(f"Müşteri sayısı alınamadı: {e}")
+            stats_card = self.create_stat_card("👥 Toplam Müşteri", "0", ERROR_COLOR)
+            stats_layout.addWidget(stats_card)
+
+        layout.addLayout(stats_layout)
+
+        # Müşteri tablosu
+        self.customers_table = QTableWidget()
+        self.customers_table.setColumnCount(5)
+        self.customers_table.setHorizontalHeaderLabels(["Müşteri", "Telefon", "Cihaz", "Arıza", "Tarih"])
+
+        header = self.customers_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.Stretch)
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
+
+        self.customers_table.setStyleSheet(f"""
+            QTableWidget {{
+                background-color: {CARD_COLOR};
+                border: 1px solid {BORDER_COLOR};
+                border-radius: 8px;
+                gridline-color: {BORDER_COLOR};
+            }}
+            QHeaderView::section {{
+                background-color: {PRIMARY_COLOR};
+                color: white;
+                padding: 8px;
+                border: none;
+                font-weight: bold;
+            }}
+        """)
+
+        self.load_customers()
+        layout.addWidget(self.customers_table)
+
+        # Export butonu
+        export_btn = QPushButton("📥 Excel'e Aktar")
+        export_btn.setFixedHeight(40)
+        export_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {SUCCESS_COLOR};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{ background-color: #2e7d32; }}
+        """)
+        export_btn.clicked.connect(self.export_customers)
+        layout.addWidget(export_btn)
+
+        return widget
+
+    def create_stat_card(self, title, value, color):
+        card = QFrame()
+        card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {color};
+                border-radius: 8px;
+                padding: 15px;
+            }}
+        """)
+        card_layout = QVBoxLayout(card)
+
+        title_label = QLabel(title)
+        title_label.setStyleSheet("color: white; font-size: 12px;")
+        card_layout.addWidget(title_label)
+
+        value_label = QLabel(value)
+        value_label.setStyleSheet("color: white; font-size: 24px; font-weight: bold;")
+        value_label.setAlignment(Qt.AlignCenter)
+        card_layout.addWidget(value_label)
+
+        return card
+
+    def load_customers(self):
+        try:
+            customers = self.db.collection('users').document(self.uid).collection('customers').stream()
+
+            self.customers_table.setRowCount(0)
+
+            for customer in customers:
+                data = customer.to_dict()
+                row = self.customers_table.rowCount()
+                self.customers_table.insertRow(row)
+
+                self.customers_table.setItem(row, 0, QTableWidgetItem(data.get('customer_name', '')))
+                self.customers_table.setItem(row, 1, QTableWidgetItem(data.get('phone_number', '')))
+                self.customers_table.setItem(row, 2, QTableWidgetItem(data.get('device_model', '')))
+                self.customers_table.setItem(row, 3, QTableWidgetItem(data.get('device_issue', '')))
+
+                created_at = data.get('created_at')
+                if isinstance(created_at, datetime):
+                    date_str = created_at.strftime('%d.%m.%Y')
+                else:
+                    date_str = ''
+                self.customers_table.setItem(row, 4, QTableWidgetItem(date_str))
+
+        except Exception as e:
+            print(f"Müşteriler yüklenemedi: {e}")
+            QMessageBox.warning(self, "Hata", f"Müşteriler yüklenemedi:\n{str(e)}")
+
+    def export_customers(self):
+        try:
+            filename, _ = QFileDialog.getSaveFileName(
+                self,
+                "Excel'e Aktar",
+                f"musteriler_{self.user_data.get('company_name', 'kullanici')}_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                "Excel Files (*.xlsx)"
+            )
+
+            if filename:
+                from openpyxl import Workbook
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Müşteriler"
+
+                # Başlıklar
+                headers = ["Müşteri Adı", "Telefon", "Cihaz", "Arıza", "Tarih"]
+                ws.append(headers)
+
+                # Veriler
+                for row in range(self.customers_table.rowCount()):
+                    row_data = []
+                    for col in range(5):
+                        item = self.customers_table.item(row, col)
+                        row_data.append(item.text() if item else '')
+                    ws.append(row_data)
+
+                wb.save(filename)
+                QMessageBox.information(self, "Başarılı", f"✓ {self.customers_table.rowCount()} kayıt dışa aktarıldı!")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Hata", f"Export hatası:\n{str(e)}")
+
+    def add_days(self, days):
+        current_date = self.expiry_date_edit.date()
+        new_date = current_date.addDays(days)
+        self.expiry_date_edit.setDate(new_date)
+        self.update_status_label()
+
+    def update_status_label(self):
+        selected_date = self.expiry_date_edit.date()
+        py_date = datetime(selected_date.year(), selected_date.month(), selected_date.day())
+        py_date = TURKEY_TZ.localize(py_date)
+
+        now = datetime.now(timezone.utc)
+        remaining = (py_date.replace(tzinfo=timezone.utc) - now).days
+
+        if remaining < 0:
+            status_text = f"⚠️ {abs(remaining)} gün önce dolacak"
+            status_color = ERROR_COLOR
+        elif remaining <= 3:
+            status_text = f"⚠️ {remaining} gün kaldı"
+            status_color = WARNING_COLOR
+        else:
+            status_text = f"✅ {remaining} gün kaldı"
+            status_color = SUCCESS_COLOR
+
+        self.status_label.setText(status_text)
+        self.status_label.setStyleSheet(f"""
+            QLabel {{
+                color: white;
+                background-color: {status_color};
+                padding: 10px;
+                border-radius: 6px;
+                font-weight: bold;
+            }}
+        """)
+
+    def save_changes(self):
+        try:
+            # Tarih dönüşümü
+            selected_date = self.expiry_date_edit.date()
+            expiry_datetime = datetime(selected_date.year(), selected_date.month(), selected_date.day(), 23, 59, 59)
+            expiry_datetime = TURKEY_TZ.localize(expiry_datetime)
+
+            update_data = {
+                'company_name': self.company_name.text().strip(),
+                'company_phone': self.company_phone.text().strip(),
+                'company_address': self.company_address.text().strip(),
+                'is_active': self.is_active.isChecked(),
+                'trial': self.trial_check.isChecked(),
+                'expiry_date': expiry_datetime
+            }
+
+            self.db.collection('users').document(self.uid).update(update_data)
+
+            QMessageBox.information(self, "Başarılı", "✓ Değişiklikler kaydedildi!")
+            self.accept()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Hata", f"Kaydetme hatası:\n{str(e)}")
+
+
+class AdminPanel(QMainWindow):
+    """Ana admin panel penceresi"""
+
+    def __init__(self):
+        super().__init__()
+        self.db = initialize_firebase()
+        self.users_data = {}
+        self.setWindowTitle("🔐 Admin Panel - Teknik Servis Yönetim")
+        self.setGeometry(100, 100, 1400, 800)
+        self.setup_ui()
+        self.load_users()
+
+        # Otomatik yenileme
+        self.refresh_timer = QTimer()
+        self.refresh_timer.timeout.connect(self.load_users)
+        self.refresh_timer.start(60000)  # 60 saniye
+
+    def setup_ui(self):
+        central = QWidget()
+        self.setCentralWidget(central)
+
+        main_layout = QVBoxLayout(central)
+        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Header
+        header = self.create_header()
+        main_layout.addWidget(header)
+
+        # Content
+        content = QWidget()
+        content.setStyleSheet(f"background-color: {SECONDARY_COLOR};")
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(20, 20, 20, 20)
+        content_layout.setSpacing(15)
+
+        # İstatistikler
+        stats = self.create_stats_panel()
+        content_layout.addWidget(stats)
+
+        # Arama ve filtre
+        search_layout = QHBoxLayout()
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("🔍 Email veya firma adı ile ara...")
+        self.search_input.setFixedHeight(40)
+        self.search_input.textChanged.connect(self.filter_users)
+        search_layout.addWidget(self.search_input)
+
+        self.filter_combo = QComboBox()
+        self.filter_combo.addItems(["Tümü", "Aktif", "Pasif", "Trial", "Lisanslı", "Süresi Dolan"])
+        self.filter_combo.setFixedWidth(150)
+        self.filter_combo.setFixedHeight(40)
+        self.filter_combo.currentTextChanged.connect(self.filter_users)
+        search_layout.addWidget(self.filter_combo)
+
+        refresh_btn = QPushButton("🔄 Yenile")
+        refresh_btn.setFixedSize(100, 40)
+        refresh_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {ACCENT_COLOR};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{ background-color: {PRIMARY_COLOR}; }}
+        """)
+        refresh_btn.clicked.connect(self.load_users)
+        search_layout.addWidget(refresh_btn)
+
+        content_layout.addLayout(search_layout)
+
+        # Kullanıcı tablosu
+        self.users_table = QTableWidget()
+        self.users_table.setColumnCount(7)
+        self.users_table.setHorizontalHeaderLabels([
+            "Email", "Firma", "Telefon", "Lisans Tipi",
+            "Bitiş Tarihi", "Kalan Gün", "Durum"
+        ])
+
+        header = self.users_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)
+
+        self.users_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.users_table.setAlternatingRowColors(True)
+        self.users_table.itemDoubleClicked.connect(self.show_user_detail)
+
+        self.users_table.setStyleSheet(f"""
+            QTableWidget {{
+                background-color: {CARD_COLOR};
+                border: 1px solid {BORDER_COLOR};
+                border-radius: 8px;
+                gridline-color: {BORDER_COLOR};
+                alternate-background-color: #f5f5f5;
+            }}
+            QTableWidget::item {{
+                padding: 8px;
+            }}
+            QTableWidget::item:selected {{
+                background-color: {PRIMARY_COLOR};
+                color: white;
+            }}
+            QHeaderView::section {{
+                background-color: {PRIMARY_COLOR};
+                color: white;
+                padding: 10px;
+                border: none;
+                font-weight: bold;
+            }}
+        """)
+
+        content_layout.addWidget(self.users_table)
+
+        # Alt butonlar
+        btn_layout = QHBoxLayout()
+
+        detail_btn = QPushButton("👁 Detay")
+        detail_btn.setFixedHeight(45)
+        detail_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {PRIMARY_COLOR};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{ background-color: {HOVER_COLOR}; }}
+        """)
+        detail_btn.clicked.connect(self.show_user_detail)
+        btn_layout.addWidget(detail_btn)
+
+        delete_btn = QPushButton("🗑 Kullanıcı Sil")
+        delete_btn.setFixedHeight(45)
+        delete_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {ERROR_COLOR};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{ background-color: #d32f2f; }}
+        """)
+        delete_btn.clicked.connect(self.delete_user)
+        btn_layout.addWidget(delete_btn)
+
+        export_btn = QPushButton("📥 Excel'e Aktar")
+        export_btn.setFixedHeight(45)
+        export_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {SUCCESS_COLOR};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{ background-color: #2e7d32; }}
+        """)
+        export_btn.clicked.connect(self.export_users)
+        btn_layout.addWidget(export_btn)
+
+        content_layout.addLayout(btn_layout)
+
+        main_layout.addWidget(content)
+
+        self.setStyleSheet(f"""
+            QMainWindow {{ background-color: {SECONDARY_COLOR}; }}
+            QLineEdit {{
+                border: 1px solid {BORDER_COLOR};
+                border-radius: 6px;
+                padding: 8px;
+                background: {CARD_COLOR};
+            }}
+            QComboBox {{
+                border: 1px solid {BORDER_COLOR};
+                border-radius: 6px;
+                padding: 8px;
+                background: {CARD_COLOR};
+            }}
+        """)
+
+    def create_header(self):
+        header = QWidget()
+        header.setFixedHeight(70)
+        header.setStyleSheet(f"""
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 {PRIMARY_COLOR}, stop:1 {ACCENT_COLOR});
+        """)
+
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(25, 0, 25, 0)
+
+        # Sol taraf
+        left_layout = QHBoxLayout()
+
+        icon = QLabel("🔐")
+        icon.setFont(QFont("Arial", 24))
+        icon.setStyleSheet("color: white;")
+        left_layout.addWidget(icon)
+
+        title = QLabel("Admin Panel")
+        title.setFont(QFont("Arial", 18, QFont.Bold))
+        title.setStyleSheet("color: white;")
+        left_layout.addWidget(title)
+
+        layout.addLayout(left_layout)
+        layout.addStretch()
+
+        # Sağ taraf
+        self.user_count_label = QLabel("👥 0 Kullanıcı")
+        self.user_count_label.setStyleSheet("""
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 8px 15px;
+            background-color: rgba(255,255,255,0.2);
+            border-radius: 5px;
+            margin: 0 8px;
+        """)
+        layout.addWidget(self.user_count_label)
+
+        # Tema butonu
+        self.theme_btn = QPushButton("🌙" if not IS_DARK_MODE else "☀")
+        self.theme_btn.setFixedSize(40, 40)
+        self.theme_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgba(255,255,255,0.2);
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 16px;
+            }}
+            QPushButton:hover {{ background-color: rgba(255,255,255,0.3); }}
+        """)
+        self.theme_btn.clicked.connect(self.toggle_theme)
+        layout.addWidget(self.theme_btn)
+
+        return header
+
+    def create_stats_panel(self):
+        panel = QWidget()
+        layout = QHBoxLayout(panel)
+        layout.setSpacing(15)
+
+        self.total_users_card = self.create_stat_card("👥 Toplam Kullanıcı", "0", PRIMARY_COLOR)
+        self.active_users_card = self.create_stat_card("✅ Aktif", "0", SUCCESS_COLOR)
+        self.trial_users_card = self.create_stat_card("🆓 Trial", "0", WARNING_COLOR)
+        self.expired_users_card = self.create_stat_card("⚠️ Süresi Dolan", "0", ERROR_COLOR)
+
+        layout.addWidget(self.total_users_card)
+        layout.addWidget(self.active_users_card)
+        layout.addWidget(self.trial_users_card)
+        layout.addWidget(self.expired_users_card)
+
+        return panel
+
+    def create_stat_card(self, title, value, color):
+        card = QFrame()
+        card.setFixedHeight(100)
+        card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {color};
+                border-radius: 10px;
+                padding: 15px;
+            }}
+        """)
+
+        layout = QVBoxLayout(card)
+
+        title_label = QLabel(title)
+        title_label.setStyleSheet("color: white; font-size: 13px; font-weight: bold;")
+        layout.addWidget(title_label)
+
+        value_label = QLabel(value)
+        value_label.setStyleSheet("color: white; font-size: 32px; font-weight: bold;")
+        value_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(value_label)
+
+        # Değeri güncellemek için referans tut
+        card.value_label = value_label
+
+        return card
+
+    def load_users(self):
+        try:
+            print("📥 Kullanıcılar yükleniyor...")
+            users = self.db.collection('users').stream()
+
+            self.users_data = {}
+            total = 0
+            active = 0
+            trial = 0
+            expired = 0
+
+            now = datetime.now(timezone.utc)
+
+            for user in users:
+                user_data = user.to_dict()
+                user_data['uid'] = user.id
+
+                # Email bilgisi al
+                try:
+                    auth_user = auth.get_user(user.id)
+                    user_data['email'] = auth_user.email
+                except:
+                    user_data['email'] = 'Bilinmiyor'
+
+                self.users_data[user.id] = user_data
+                total += 1
+
+                # İstatistikler
+                if user_data.get('is_active', True):
+                    active += 1
+
+                if user_data.get('trial', False):
+                    trial += 1
+
+                expiry_date = user_data.get('expiry_date')
+                if expiry_date:
+                    if expiry_date.tzinfo is None:
+                        expiry_date = expiry_date.replace(tzinfo=timezone.utc)
+                    if expiry_date < now:
+                        expired += 1
+
+            # İstatistikleri güncelle
+            self.total_users_card.value_label.setText(str(total))
+            self.active_users_card.value_label.setText(str(active))
+            self.trial_users_card.value_label.setText(str(trial))
+            self.expired_users_card.value_label.setText(str(expired))
+
+            self.user_count_label.setText(f"👥 {total} Kullanıcı")
+
+            # Tabloyu doldur
+            self.populate_table()
+
+            print(f"✓ {total} kullanıcı yüklendi")
+
+        except Exception as e:
+            print(f"✗ Kullanıcı yükleme hatası: {e}")
+            QMessageBox.critical(self, "Hata", f"Kullanıcılar yüklenemedi:\n{str(e)}")
+
+    def populate_table(self):
+        self.users_table.setRowCount(0)
+
+        # Sıralama: En yeni önce
+        sorted_users = sorted(
+            self.users_data.items(),
+            key=lambda x: x[1].get('created_at', datetime.min.replace(tzinfo=TURKEY_TZ)),
+            reverse=True
+        )
+
+        now = datetime.now(timezone.utc)
+
+        for uid, user_data in sorted_users:
+            row = self.users_table.rowCount()
+            self.users_table.insertRow(row)
+
+            # Email
+            email_item = QTableWidgetItem(user_data.get('email', 'Bilinmiyor'))
+            email_item.setData(Qt.UserRole, uid)
+            self.users_table.setItem(row, 0, email_item)
+
+            # Firma
+            self.users_table.setItem(row, 1, QTableWidgetItem(user_data.get('company_name', '')))
+
+            # Telefon
+            self.users_table.setItem(row, 2, QTableWidgetItem(user_data.get('company_phone', '')))
+
+            # Lisans tipi
+            license_type = "🆓 Trial" if user_data.get('trial', True) else "💎 Lisanslı"
+            self.users_table.setItem(row, 3, QTableWidgetItem(license_type))
+
+            # Bitiş tarihi
+            expiry_date = user_data.get('expiry_date')
+            if isinstance(expiry_date, datetime):
+                if expiry_date.tzinfo is None:
+                    expiry_date = TURKEY_TZ.localize(expiry_date)
+                expiry_str = expiry_date.strftime('%d.%m.%Y')
+            else:
+                expiry_str = 'Yok'
+            self.users_table.setItem(row, 4, QTableWidgetItem(expiry_str))
+
+            # Kalan gün
+            if expiry_date:
+                if expiry_date.tzinfo is None:
+                    expiry_date = expiry_date.replace(tzinfo=timezone.utc)
+                remaining = (expiry_date - now).days
+
+                remaining_item = QTableWidgetItem(str(remaining))
+
+                if remaining < 0:
+                    remaining_item.setForeground(QColor(ERROR_COLOR))
+                    remaining_item.setText(f"{remaining} ⚠️")
+                elif remaining <= 3:
+                    remaining_item.setForeground(QColor(WARNING_COLOR))
+                else:
+                    remaining_item.setForeground(QColor(SUCCESS_COLOR))
+
+                self.users_table.setItem(row, 5, remaining_item)
+            else:
+                self.users_table.setItem(row, 5, QTableWidgetItem('-'))
+
+            # Durum
+            is_active = user_data.get('is_active', True)
+            status_item = QTableWidgetItem("✅ Aktif" if is_active else "❌ Pasif")
+            if is_active:
+                status_item.setForeground(QColor(SUCCESS_COLOR))
+            else:
+                status_item.setForeground(QColor(ERROR_COLOR))
+            self.users_table.setItem(row, 6, status_item)
+
+    def filter_users(self):
+        search_text = self.search_input.text().lower()
+        filter_type = self.filter_combo.currentText()
+
+        now = datetime.now(timezone.utc)
+
+        for row in range(self.users_table.rowCount()):
+            email = self.users_table.item(row, 0).text().lower()
+            company = self.users_table.item(row, 1).text().lower()
+            uid = self.users_table.item(row, 0).data(Qt.UserRole)
+            user_data = self.users_data.get(uid, {})
+
+            # Arama filtresi
+            search_match = (search_text in email) or (search_text in company)
+
+            # Durum filtresi
+            filter_match = True
+
+            if filter_type == "Aktif":
+                filter_match = user_data.get('is_active', True)
+            elif filter_type == "Pasif":
+                filter_match = not user_data.get('is_active', True)
+            elif filter_type == "Trial":
+                filter_match = user_data.get('trial', True)
+            elif filter_type == "Lisanslı":
+                filter_match = not user_data.get('trial', True)
+            elif filter_type == "Süresi Dolan":
+                expiry_date = user_data.get('expiry_date')
+                if expiry_date:
+                    if expiry_date.tzinfo is None:
+                        expiry_date = expiry_date.replace(tzinfo=timezone.utc)
+                    filter_match = expiry_date < now
+                else:
+                    filter_match = False
+
+            # Satırı göster/gizle
+            self.users_table.setRowHidden(row, not (search_match and filter_match))
+
+    def show_user_detail(self):
+        row = self.users_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Uyarı", "Lütfen bir kullanıcı seçin!")
+            return
+
+        uid = self.users_table.item(row, 0).data(Qt.UserRole)
+        user_data = self.users_data.get(uid)
+
+        if user_data:
+            dialog = UserDetailDialog(user_data, self.db, self)
+            if dialog.exec_():
+                self.load_users()
+
+    def delete_user(self):
+        row = self.users_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Uyarı", "Lütfen bir kullanıcı seçin!")
+            return
+
+        uid = self.users_table.item(row, 0).data(Qt.UserRole)
+        email = self.users_table.item(row, 0).text()
+
+        reply = QMessageBox.question(
+            self,
+            "⚠️ Dikkat",
+            f"'{email}' kullanıcısını ve TÜM VERİLERİNİ silmek istediğinize emin misiniz?\n\n"
+            "Bu işlem geri alınamaz!",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            try:
+                # Firestore'dan sil
+                self.db.collection('users').document(uid).delete()
+
+                # Auth'dan sil
+                try:
+                    auth.delete_user(uid)
+                except:
+                    pass
+
+                QMessageBox.information(self, "Başarılı", "✓ Kullanıcı silindi!")
+                self.load_users()
+
+            except Exception as e:
+                QMessageBox.critical(self, "Hata", f"Silme hatası:\n{str(e)}")
+
+    def export_users(self):
+        try:
+            filename, _ = QFileDialog.getSaveFileName(
+                self,
+                "Excel'e Aktar",
+                f"kullanicilar_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                "Excel Files (*.xlsx)"
+            )
+
+            if filename:
+                from openpyxl import Workbook
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Kullanıcılar"
+
+                # Başlıklar
+                headers = ["Email", "Firma", "Telefon", "Adres", "Lisans Tipi", "Bitiş Tarihi", "Kalan Gün", "Durum"]
+                ws.append(headers)
+
+                now = datetime.now(timezone.utc)
+
+                # Veriler
+                for uid, user_data in self.users_data.items():
+                    expiry_date = user_data.get('expiry_date')
+
+                    if isinstance(expiry_date, datetime):
+                        if expiry_date.tzinfo is None:
+                            expiry_date = TURKEY_TZ.localize(expiry_date)
+                        expiry_str = expiry_date.strftime('%d.%m.%Y')
+                        remaining = (expiry_date.replace(tzinfo=timezone.utc) - now).days
+                    else:
+                        expiry_str = 'Yok'
+                        remaining = '-'
+
+                    row_data = [
+                        user_data.get('email', ''),
+                        user_data.get('company_name', ''),
+                        user_data.get('company_phone', ''),
+                        user_data.get('company_address', ''),
+                        "Trial" if user_data.get('trial', True) else "Lisanslı",
+                        expiry_str,
+                        remaining if isinstance(remaining, int) else '-',
+                        "Aktif" if user_data.get('is_active', True) else "Pasif"
+                    ]
+                    ws.append(row_data)
+
+                wb.save(filename)
+                QMessageBox.information(self, "Başarılı", f"✓ {len(self.users_data)} kullanıcı dışa aktarıldı!")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Hata", f"Export hatası:\n{str(e)}")
+
+    def toggle_theme(self):
+        if IS_DARK_MODE:
+            set_light_mode()
+        else:
+            set_dark_mode()
+
+        # UI'ı yenile
+        self.setup_ui()
+        self.load_users()
+
+        self.theme_btn.setText("🌙" if not IS_DARK_MODE else "☀")
+
+
+def main():
+    app = QApplication(sys.argv)
+    app.setFont(QFont("Arial", 10))
+
+    # Giriş kontrolü
+    login = AdminLoginDialog()
+    if login.exec_() == QDialog.Accepted:
+        window = AdminPanel()
+        window.show()
+        sys.exit(app.exec_())
+    else:
+        sys.exit()
+
+
+if __name__ == "__main__":
+    main()
